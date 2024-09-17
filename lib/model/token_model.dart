@@ -3,7 +3,7 @@ import 'package:web3dart/credentials.dart';
 class Token {
   final String name;
   final String symbol;
-  final String balance;
+  late final String balance;
   final String iconUrl;
   final EthereumAddress? contractAddress;
 

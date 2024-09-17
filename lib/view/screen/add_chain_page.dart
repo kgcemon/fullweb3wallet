@@ -2,26 +2,47 @@ import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:mind_web3_test/controller/wallet_controller.dart';
 
-class AddChainPage extends StatelessWidget {
+import '../widget/addChainModal.dart';
+
+class AddChainPage extends StatefulWidget {
+  const AddChainPage({super.key});
+
+  @override
+  AddChainPageState createState() => AddChainPageState();
+}
+
+class AddChainPageState extends State<AddChainPage> {
   final WalletController controller = Get.find();
+  final TextEditingController searchController = TextEditingController();
 
-  final TextEditingController chainNameController = TextEditingController();
-  final TextEditingController rpcUrlController = TextEditingController();
-  final TextEditingController chainIdController = TextEditingController();
+  // This observable will store the filtered chains for display
+  RxList<Map<String, String?>> filteredChains = <Map<String, String?>>[].obs;
 
-  final _formKey = GlobalKey<FormState>(); // Form key for validation
 
-  AddChainPage({super.key});
+  @override
+  void initState() {
+    super.initState();
 
-  // Function to validate the RPC URL
-  bool _isValidRpcUrl(String url) {
-    final Uri? uri = Uri.tryParse(url);
-    return uri != null && uri.hasScheme && uri.hasAuthority;
+    // Initially, all chains are shown
+    filteredChains.value = controller.chains;
+
+    // Listen to the search input and filter the chain list
+    searchController.addListener(() {
+      filterChains(searchController.text);
+    });
   }
 
-  // Function to validate if the Chain ID is numeric
-  bool _isNumeric(String value) {
-    return double.tryParse(value) != null;
+  // Function to filter chains based on the search query
+  void filterChains(String query) {
+    if (query.isEmpty) {
+      // If search query is empty, show all chains
+      filteredChains.value = controller.chains;
+    } else {
+      // Filter chains by name
+      filteredChains.value = controller.chains
+          .where((chain) => chain['name']!.toLowerCase().contains(query.toLowerCase()))
+          .toList();
+    }
   }
 
   @override
@@ -35,116 +56,24 @@ class AddChainPage extends StatelessWidget {
         padding: const EdgeInsets.all(16.0),
         child: Column(
           children: [
-            // Form for adding a new chain
-            Form(
-              key: _formKey, // Assign the form key for validation
-              child: Column(
-                children: [
-                  // Chain Name Input
-                  TextFormField(
-                    controller: chainNameController,
-                    decoration: const InputDecoration(
-                      labelText: 'Chain Name',
-                      hintText: 'e.g. Binance Smart Chain',
-                      border: OutlineInputBorder(),
-                    ),
-                    validator: (value) {
-                      if (value == null || value.isEmpty) {
-                        return 'Chain name cannot be empty';
-                      }
-                      return null;
-                    },
-                  ),
-                  const SizedBox(height: 10),
-
-                  // RPC URL Input
-                  TextFormField(
-                    controller: rpcUrlController,
-                    decoration: const InputDecoration(
-                      labelText: 'RPC URL',
-                      hintText: 'e.g. https://bsc-dataseed.binance.org',
-                      border: OutlineInputBorder(),
-                    ),
-                    validator: (value) {
-                      if (value == null || value.isEmpty) {
-                        return 'RPC URL cannot be empty';
-                      }
-                      if (!_isValidRpcUrl(value)) {
-                        return 'Please enter a valid RPC URL';
-                      }
-                      return null;
-                    },
-                  ),
-                  const SizedBox(height: 10),
-
-                  // Chain ID Input
-                  TextFormField(
-                    controller: chainIdController,
-                    decoration: const InputDecoration(
-                      labelText: 'Chain ID',
-                      hintText: 'e.g. 56 (for BSC)',
-                      border: OutlineInputBorder(),
-                    ),
-                    validator: (value) {
-                      if (value == null || value.isEmpty) {
-                        return 'Chain ID cannot be empty';
-                      }
-                      if (!_isNumeric(value)) {
-                        return 'Chain ID must be numeric';
-                      }
-                      return null;
-                    },
-                  ),
-                  const SizedBox(height: 20),
-
-                  // Add Chain Button with validation
-                  ElevatedButton(
-                    onPressed: () {
-                      if (_formKey.currentState!.validate()) {
-                        // Get the input values
-                        String chainName = chainNameController.text;
-                        String rpcUrl = rpcUrlController.text;
-                        String chainId = chainIdController.text;
-
-                        // Validate inputs
-                        String? validationError = controller.validateChainInput(
-                          chainName,
-                          rpcUrl,
-                          chainId,
-                        );
-
-                        if (validationError != null) {
-                          Get.snackbar(
-                            'Validation Error',
-                            validationError,
-                            snackPosition: SnackPosition.BOTTOM,
-                            backgroundColor: Colors.red.withOpacity(0.5),
-                            colorText: Colors.white,
-                          );
-                        } else {
-                          // Add the chain to the list
-                          controller.addCustomChain(chainName, rpcUrl, chainId);
-                          Get.back(); // Close the modal after successfully adding the chain
-                        }
-                      }
-                    },
-                    child: const Text('Add Chain'),
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: Colors.blueAccent,
-                    ),
-                  ),
-                ],
+            // Search Bar
+            TextField(
+              controller: searchController,
+              decoration: const InputDecoration(
+                labelText: 'Search Chain',
+                hintText: 'Enter chain name',
+                prefixIcon: Icon(Icons.search),
+                border: OutlineInputBorder(),
               ),
             ),
-
             const SizedBox(height: 20),
 
-            // List of added chains
+            // List of added chains (filtered by search query)
             Expanded(
               child: Obx(() => ListView.builder(
-                itemCount: controller.chains.length,
+                itemCount: filteredChains.length,
                 itemBuilder: (context, index) {
-                  var chain = controller.chains[index];
+                  var chain = filteredChains[index];
                   bool isActive = chain['name'] == controller.activeChain.value;
 
                   return Card(
@@ -158,11 +87,30 @@ class AddChainPage extends StatelessWidget {
                           fontWeight: isActive ? FontWeight.bold : FontWeight.normal,
                         ),
                       ),
-                      subtitle: Text('Chain ID: ${chain['chainId']}'),
+                      subtitle: Text(
+                        'Chain ID: ${chain['chainId']}',
+                      ),
                       trailing: ElevatedButton(
                         onPressed: () {
                           if (!isActive) {
-                            controller.switchChain(chain['name']!); // Activate the selected chain
+                            // Set the active chain and notify the user
+                            controller.switchChain(chain['name']!);
+                            Get.snackbar(
+                              'Success!',
+                              '${chain['name']} is now the active chain.',
+                              snackPosition: SnackPosition.TOP,
+                              backgroundColor: Colors.green.withOpacity(0.8),
+                              colorText: Colors.white,
+                              duration: const Duration(seconds: 2),
+                              icon: const Icon(Icons.check_circle, color: Colors.white),
+                            );
+                            setState(() {
+
+                            });
+                            // Navigate back to home after switching
+                            Future.delayed(const Duration(seconds: 1), () {
+                              Get.back(); // Navigate back to the previous screen (likely Home)
+                            });
                           }
                         },
                         style: ElevatedButton.styleFrom(
@@ -180,6 +128,17 @@ class AddChainPage extends StatelessWidget {
           ],
         ),
       ),
+
+      // Floating Action Button to Add a New Chain
+      floatingActionButton: FloatingActionButton(
+        onPressed: () {
+          showAddChainModal(context); // Show Add Chain Modal
+        },
+        backgroundColor: Colors.blueAccent,
+        child: const Icon(Icons.add),
+      ),
     );
   }
+
+
 }
