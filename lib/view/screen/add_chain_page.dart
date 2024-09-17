@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:mind_web3_test/controller/wallet_controller.dart';
-
+import '../../controller/ChainController.dart';
 import '../widget/addChainModal.dart';
 
 class AddChainPage extends StatefulWidget {
@@ -12,7 +12,7 @@ class AddChainPage extends StatefulWidget {
 }
 
 class AddChainPageState extends State<AddChainPage> {
-  final WalletController controller = Get.find();
+  final ChainController controller = Get.put(ChainController());
   final TextEditingController searchController = TextEditingController();
 
   // This observable will store the filtered chains for display

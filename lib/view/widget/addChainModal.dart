@@ -1,11 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
-
-import '../../controller/wallet_controller.dart';
+import '../../controller/ChainController.dart';
 
 void showAddChainModal(BuildContext context) {
 
-  final WalletController controller = Get.find();
+  final ChainController controller = Get.find();
 
   bool _isValidUrl(String url) {
     final Uri? uri = Uri.tryParse(url);

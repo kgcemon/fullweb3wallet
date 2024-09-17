@@ -5,54 +5,29 @@ import 'package:web3dart/web3dart.dart';
 import 'package:http/http.dart' as http;
 import '../model/token_model.dart';
 import '../services/global_abi.dart';
+import 'ChainController.dart';
 
 class WalletController extends GetxController {
   final tokens = <Token>[].obs; // List of tokens (native + ERC-20)
   final isLoading = false.obs;  // Loading state
   final totalBalance = '0.00'.obs;  // Total balance
-  final activeChain = 'Binance Smart Chain'.obs;  // Active chain name
-  final activeRpcUrl = 'https://bsc-dataseed.binance.org'.obs; // Active RPC URL
-  final activeNativeCoinName = 'BNB'.obs; // Active native coin name (BNB, ETH, etc.)
-  final activeNativeCoinSymbol = 'BNB'.obs; // Active native coin symbol
-  final activeExplorerUrl = ''.obs; // Active Explorer URL (Optional)
   late Web3Client _web3client;
 
-  // List of user-added and predefined chains with Explorer URL (optional)
-  final List<Map<String, String?>> chains = <Map<String, String?>>[
-    // Binance Smart Chain (Predefined)
-    {
-      'name': 'Binance Smart Chain',
-      'rpcUrl': 'https://bsc-dataseed.binance.org',
-      'chainId': '56',
-      'nativeCoinName': 'Binance Coin',
-      'nativeCoinSymbol': 'BNB',
-      'explorerUrl': 'https://bscscan.com', // Optional
-    },
-    // Ethereum (Predefined)
-    {
-      'name': 'Ethereum',
-      'rpcUrl': 'https://rpc.lokibuilder.xyz/wallet', // Replace with your Infura ID
-      'chainId': '1',
-      'nativeCoinName': 'Ethereum',
-      'nativeCoinSymbol': 'ETH',
-      'explorerUrl': 'https://etherscan.io', // Optional
-    },
-  ].obs;
-
   // Default wallet address (Example, replace with real wallet)
-  final EthereumAddress _walletAddress =
-  EthereumAddress.fromHex('0x86ed528E743B77A727BadC5e24da4B41Da9839E0');
+  final EthereumAddress _walletAddress = EthereumAddress.fromHex('0x86ed528E743B77A727BadC5e24da4B41Da9839E0');
+
+  final ChainController chainController = Get.put(ChainController());  // Find the ChainController instance
 
   @override
   void onInit() {
     super.onInit();
-    _initWeb3();
-    fetchBalances();
+    _initWeb3();   // Initialize Web3 Client
+    fetchBalances(); // Fetch balances for default chain
   }
 
-  /// Initialize Web3 Client with the active chain's RPC URL
+  /// Initialize Web3 Client with the active chain's RPC URL from ChainController
   void _initWeb3() {
-    _web3client = Web3Client(activeRpcUrl.value, http.Client());
+    _web3client = Web3Client(chainController.activeRpcUrl.value, http.Client());
   }
 
   /// Fetch the balances of both the native token and ERC-20 tokens
@@ -62,8 +37,8 @@ class WalletController extends GetxController {
       // Fetch native coin balance (BNB, ETH, etc.)
       final nativeCoinBalance = await _getNativeCoinBalance();
 
-      // Predefined tokens for each chain (e.g., USDT, BUSD for BNB Chain)
-      final tokensToFetch = activeChain.value == 'Binance Smart Chain'
+      // Predefined tokens for each chain
+      final tokensToFetch = chainController.activeChain.value == 'Binance Smart Chain'
           ? [
         // USDT on BNB Chain
         {'name': 'Tether USD', 'symbol': 'USDT', 'contract': '0x55d398326f99059fF775485246999027B3197955'},
@@ -79,18 +54,17 @@ class WalletController extends GetxController {
 
       List<Token> tokensList = [
         Token(
-          name: activeNativeCoinName.value,  // Dynamic native token name
-          symbol: activeNativeCoinSymbol.value,
+          name: chainController.activeNativeCoinName.value,  // Dynamic native token name
+          symbol: chainController.activeNativeCoinSymbol.value,
           balance: nativeCoinBalance,
-          iconUrl: _getTokenIconUrl(activeNativeCoinSymbol.value), // Dynamic icon URL
+          iconUrl: _getTokenIconUrl(chainController.activeNativeCoinSymbol.value), // Dynamic icon URL
           contractAddress: null, // Native token, no contract address
         ),
       ];
 
       // Fetch balance for each predefined token
       for (var tokenData in tokensToFetch) {
-        final tokenBalance = await _getTokenBalance(
-            EthereumAddress.fromHex(tokenData['contract']!));
+        final tokenBalance = await _getTokenBalance(EthereumAddress.fromHex(tokenData['contract']!));
         tokensList.add(Token(
           name: tokenData['name']!,
           symbol: tokenData['symbol']!,
@@ -136,8 +110,7 @@ class WalletController extends GetxController {
         function: balanceFunction,
         params: [_walletAddress],
       );
-      final balanceDecimal =
-          Decimal.parse(balance[0].toString()) / Decimal.parse('1e18');
+      final balanceDecimal = Decimal.parse(balance[0].toString()) / Decimal.parse('1e18');
       return balanceDecimal.toDouble().toStringAsFixed(4);
     } catch (e) {
       print('Error fetching token balance: $e');
@@ -154,105 +127,10 @@ class WalletController extends GetxController {
     totalBalance.value = total.toStringAsFixed(2);
   }
 
-  /// Validate and add a custom chain
-  String? validateChainInput(String name, String rpcUrl, String chainId) {
-    if (name.isEmpty) {
-      return 'Chain name cannot be empty';
-    }
-    if (chains.any((chain) => chain['name'] == name)) {
-      return 'Chain $name already exists';
-    }
-    if (!_isValidRpcUrl(rpcUrl)) {
-      return 'Invalid RPC URL';
-    }
-    if (chainId.isEmpty || !_isNumeric(chainId)) {
-      return 'Chain ID must be numeric and not empty';
-    }
-    return null; // Return null if all validations pass
-  }
-
-  /// Helper method to validate if a URL is valid
-  bool _isValidRpcUrl(String url) {
-    final Uri? uri = Uri.tryParse(url);
-    return uri != null && uri.hasScheme && uri.hasAuthority;
-  }
-
-  /// Helper method to check if a value is numeric
-  bool _isNumeric(String value) {
-    return double.tryParse(value) != null;
-  }
-
-  /// Add a custom chain to the list
-  void addCustomChain(String name, String rpcUrl, String chainId, String nativeCoinName, String nativeCoinSymbol, [String? explorerUrl]) {
-    String? validationError = validateChainInput(name, rpcUrl, chainId);
-    if (validationError != null) {
-      print(validationError);
-      return;
-    }
-
-    // Add new chain if validation passes
-    chains.add({
-      'name': name,
-      'rpcUrl': rpcUrl,
-      'chainId': chainId,
-      'nativeCoinName': nativeCoinName,
-      'nativeCoinSymbol': nativeCoinSymbol,
-      'explorerUrl': explorerUrl ?? '',
-    });
-
-    print("Added new chain: $name");
-  }
-
-  /// Switch between different chains and fetch balances
-  void switchChain(String name) {
-    try {
-      var selectedChain = chains.firstWhere(
-            (chain) => chain['name'] == name,
-        orElse: () => chains.first,
-      ); // Fallback to the first chain if not found
-
-      activeChain.value = selectedChain['name']!;
-      activeRpcUrl.value = selectedChain['rpcUrl']!;
-      activeNativeCoinName.value = selectedChain['nativeCoinName']!;
-      activeNativeCoinSymbol.value = selectedChain['nativeCoinSymbol']!;
-      activeExplorerUrl.value = selectedChain['explorerUrl'] ?? ''; // Set optional Explorer URL
-
-      // Reinitialize the Web3Client with the new RPC URL
-      _initWeb3();
-
-      // Fetch balances for the newly active chain
-      fetchBalances();
-
-      print('Switched to chain: ${selectedChain['name']}');
-    } catch (e) {
-      print('Error switching chain: $e');
-    }
-  }
-
-  /// Add a custom ERC-20 token to the wallet
-  void addCustomToken(String name, String symbol, String contractAddress) {
-    try {
-      final tokenAddress = EthereumAddress.fromHex(contractAddress);
-
-      tokens.add(
-        Token(
-          name: name,
-          symbol: symbol,
-          balance: '0.00', // Placeholder until the balance is fetched
-          iconUrl: _getTokenIconUrl(symbol), // Dynamic icon based on symbol
-          contractAddress: tokenAddress,
-        ),
-      );
-
-      // Optionally, fetch the balance of the added token immediately
-      _getTokenBalance(tokenAddress).then((balance) {
-        tokens.firstWhere((token) => token.contractAddress == tokenAddress)
-            .balance = balance;
-        _calculateTotalBalance(); // Recalculate total balance after adding the token
-      });
-    } catch (e) {
-      print('Error adding custom token: $e');
-    }
+  /// Re-fetch balances when the active chain is switched
+  void onChainSwitched() {
+    _initWeb3();  // Reinitialize Web3Client with new RPC URL
+    fetchBalances();  // Fetch the token balances for the new chain
   }
 
   /// Helper to return token icon URL based on symbol

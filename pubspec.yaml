@@ -39,6 +39,7 @@ dependencies:
   http:
   web3dart:
   decimal:
+  get_storage:
 
 dev_dependencies:
   flutter_test:

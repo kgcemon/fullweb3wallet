@@ -23,7 +23,7 @@ class TrustWalletUI extends StatelessWidget {
           IconButton(
             icon: const Icon(Icons.add, color: Colors.white),
             onPressed: () {
-              Get.to(AddChainPage());  // Navigate to AddChainPage
+              Get.to(()=> const AddChainPage());  // Navigate to AddChainPage
             },
           ),
           IconButton(icon: const Icon(Icons.qr_code_scanner, color: Colors.white), onPressed: () {}),

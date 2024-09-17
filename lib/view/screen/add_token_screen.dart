@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
-import 'package:mind_web3_test/controller/wallet_controller.dart';
+import '../../controller/ChainController.dart';
 
 class AddTokenPage extends StatelessWidget {
-  final WalletController controller = Get.find();
+  final ChainController controller = Get.find();
 
   final TextEditingController tokenNameController = TextEditingController();
   final TextEditingController tokenSymbolController = TextEditingController();
@@ -96,7 +96,7 @@ class AddTokenPage extends StatelessWidget {
                     String contractAddress = contractAddressController.text;
 
                     // Add the token to the active chain's token list
-                    controller.addCustomToken(tokenName, tokenSymbol, contractAddress);
+                    //controller.addCustomToken(tokenName, tokenSymbol, contractAddress);
 
                     // Notify user and close the page after adding the token
                     Get.snackbar(
